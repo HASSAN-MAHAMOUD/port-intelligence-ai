@@ -32,16 +32,17 @@ réelles du port.
 > ✅ Métriques issues du jeu de **validation** sauf Forêt Aléatoire qui affiche le jeu de **test indépendant**
 
 ## 🗂️ Structure du projet
-Port-intelligence-ai/
-│
-├── chargement.ipynb                          # Chargement des données
-├── Exploration_de_donnes_.ipynb              # EDA et visualisation
-├── prediction_Surestarie_regression_lineaire.ipynb
-├── prediction_Surestarie_KNN.ipynb
-├── prediction_Surestarie_arbre.ipynb
-├── prediction_Surestarie_foret.ipynb         # ✅ Modèle retenu
-├── app.py                                    # Interface Gradio
-└── requirements.txt                          # Dépendances
+
+| Fichier | Description |
+|---------|-------------|
+| `chargement.ipynb` | Chargement et préparation des données |
+| `Exploration_de_donnes_.ipynb` | Analyse exploratoire et visualisation (EDA) |
+| `prediction_Surestarie_regression_lineaire.ipynb` | Modèle Régression Linéaire |
+| `prediction_Surestarie_KNN.ipynb` | Modèle K-Nearest Neighbors |
+| `prediction_Surestarie_arbre.ipynb` | Modèle Arbre de Décision |
+| `prediction_Surestarie_foret.ipynb` | ✅ Modèle retenu — Forêt Aléatoire |
+| `app.py` | Interface web de prédiction (Gradio) |
+| `requirements.txt` | Dépendances Python |
 
 ## 🔬 Méthodologie
 
