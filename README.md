@@ -20,17 +20,19 @@ réelles du port.
 
 👉 **[Tester l'application ici](https://huggingface.co/spaces/HassanML2026/port-intelligence-ai)**
 
-## 📊 Résultats des modèles
+## 📊 Résultats des modèles (meilleure configuration par modèle)
 
-| Modèle | MAE (min) | RMSE (min) | R² |
-|--------|-----------|------------|-----|
-| Régression Linéaire | 561.17 | 1332.67 | 0.070 |
-| KNN | 326.03 | 663.26 | 0.391 |
-| Arbre de Décision | 308.66 | 856.01 | 0.616 |
-| **Forêt Aléatoire ✅** | **260.03** | **551.98** | **0.667** |
+| Modèle | Configuration | MAE (min) | RMSE (min) | R² |
+|--------|--------------|-----------|------------|-----|
+| Régression Linéaire | Itérative + tuning | 355.90 | 610.72 | 0.484 |
+| KNN | KNN + tuning | 245.93 | 546.37 | 0.587 |
+| Arbre de Décision | Itérative + tuning | 352.78 | 607.00 | 0.490 |
+| **Forêt Aléatoire ✅** | **Simple sans tuning** | **260.03** | **551.98** | **0.667** |
+
+> ✅ Métriques issues du jeu de **validation** sauf Forêt Aléatoire qui affiche le jeu de **test indépendant**
 
 ## 🗂️ Structure du projet
-ort-intelligence-ai/
+Port-intelligence-ai/
 │
 ├── chargement.ipynb                          # Chargement des données
 ├── Exploration_de_donnes_.ipynb              # EDA et visualisation
