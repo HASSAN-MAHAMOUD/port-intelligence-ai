@@ -59,6 +59,11 @@ MODELES_DATA = [
     ("Forêt Aléatoire ★",  0.667, 260, 552,  "#22c55e"),
 ]
 
+# Seuils de poids réalistes (déduits des percentiles des données réelles du port)
+# Utilisés à la fois par le formulaire manuel et l'import CSV en masse.
+POIDS_TARE_MIN, POIDS_TARE_MAX           = 1_000, 100_000     # kg
+POIDS_CARGAISON_MIN, POIDS_CARGAISON_MAX = 1_000, 200_000     # kg
+
 DATA_HEURES = [
     ("16h", 2700), ("17h", 2500), ("15h", 2000), ("23h", 2000),
     ("11h", 1800), ("19h", 1600), ("1h",  1600), ("20h", 1400),
@@ -274,7 +279,66 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 .facteur-label { flex:1; font-size:0.83rem; font-weight:500; color:rgba(255,255,255,0.7); }
 .facteur-val { font-size:0.83rem; color:rgba(255,255,255,0.4); }
 
+/* ══ IMPORT CSV — section sobre ══ */
+.csv-divider {
+    height:1px; margin:3rem 0 2.2rem;
+    background:linear-gradient(90deg, rgba(29,158,117,0.35), rgba(255,255,255,0.04) 60%);
+}
+.csv-section-title {
+    display:flex; align-items:center; gap:10px;
+    font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:700;
+    color:#fff; margin:0 0 0.35rem; letter-spacing:-0.01em;
+}
+.csv-section-title i { color:var(--accent); font-size:1.05rem; }
+.csv-section-sub {
+    font-size:0.86rem; color:rgba(255,255,255,0.42);
+    margin-bottom:1.6rem; max-width:600px; line-height:1.65;
+}
+[data-testid="stFileUploaderDropzone"] {
+    background:rgba(29,158,117,0.025) !important;
+    border:1.5px dashed rgba(29,158,117,0.3) !important;
+    border-radius:14px !important;
+    transition:border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    border-color:#1d9e75 !important;
+    background:rgba(29,158,117,0.09) !important;
+    box-shadow:0 0 0 1px rgba(29,158,117,0.25), 0 8px 24px rgba(29,158,117,0.18) !important;
+    transform:translateY(-2px);
+}
+.csv-mini-link {
+    font-size:0.78rem; color:rgba(255,255,255,0.38);
+    margin:10px 0 2px; display:flex; align-items:center; gap:6px; line-height:1.5;
+    flex-wrap:wrap;
+}
+.csv-mini-link i { color:rgba(29,158,117,0.7); font-size:0.74rem; }
+.csv-mini-link code {
+    background:rgba(255,255,255,0.05); padding:1px 6px; border-radius:5px;
+    font-size:0.74rem; color:rgba(255,255,255,0.55);
+}
+
+/* ── Résultats : zone douce, sans carte lourde ── */
+.csv-results-wrap {
+    margin-top:2.2rem; padding-top:1.6rem;
+    border-top:1px solid rgba(255,255,255,0.07);
+    animation:csvFadeIn 0.4s ease;
+}
+@keyframes csvFadeIn { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+.csv-result-row {
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:1rem; margin-bottom:1.4rem;
+}
+.csv-result-stats { display:flex; gap:2.6rem; flex-wrap:wrap; }
+.csv-result-stat .num {
+    font-family:'Syne',sans-serif; font-weight:800; font-size:1.6rem; color:#fff; line-height:1;
+}
+.csv-result-stat .lbl {
+    font-size:0.72rem; color:rgba(255,255,255,0.4); margin-top:4px;
+    text-transform:uppercase; letter-spacing:0.06em;
+}
+
 /* ══ HISTORIQUE ══ */
+
 .hist-table { width:100%; border-collapse:collapse; font-size:0.82rem; margin-top:8px; }
 .hist-table th {
     background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.3);
@@ -704,8 +768,16 @@ elif st.session_state.page == "predict":
         col1, col2 = st.columns(2)
         with col1:
             st.markdown('<div class="glass-card"><div class="glass-card-title"><i class="fa-solid fa-weight-hanging"></i> Poids (kg)</div>', unsafe_allow_html=True)
-            poids_tare      = st.number_input("Poids Tare (kg)", value=8500, min_value=0, step=500)
-            poids_cargaison = st.number_input("Poids Cargaison (kg)", value=15000, min_value=0, step=500)
+            poids_tare      = st.number_input(
+                "Poids Tare (kg)", value=8500, step=500,
+                min_value=POIDS_TARE_MIN, max_value=POIDS_TARE_MAX,
+                help=f"Plage réaliste : {POIDS_TARE_MIN:,}–{POIDS_TARE_MAX:,} kg"
+            )
+            poids_cargaison = st.number_input(
+                "Poids Cargaison (kg)", value=15000, step=500,
+                min_value=POIDS_CARGAISON_MIN, max_value=POIDS_CARGAISON_MAX,
+                help=f"Plage réaliste : {POIDS_CARGAISON_MIN:,}–{POIDS_CARGAISON_MAX:,} kg"
+            )
             st.markdown('</div>', unsafe_allow_html=True)
 
         with col2:
@@ -884,6 +956,159 @@ L.control.attribution({{prefix:'© CartoDB'}}).addTo(map);
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
+
+    # ── Prédiction en masse via import CSV ──────────────────────────────────
+    st.markdown('<div class="csv-divider"></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="csv-section-title"><i class="fa-solid fa-file-csv"></i> Prédiction en masse depuis un CSV</div>
+    <p class="csv-section-sub">Importez un fichier contenant plusieurs camions pour prédire toutes les surestaries en une fois, puis exportez les résultats.</p>
+    """, unsafe_allow_html=True)
+
+    CSV_REQUIRED_COLS = [
+        'Poids_Tare_kg', 'Poids_Cargaison_kg', 'heure_entree',
+        'jour_semaine', 'mois', 'Nom_Cargaison', 'Nom_Navire', 'Type_Travail'
+    ]
+
+    csv_file = st.file_uploader(
+        "Déposez votre fichier CSV ici",
+        type=["csv"],
+        key="csv_uploader",
+        help=(
+            f"Colonnes requises : {', '.join(CSV_REQUIRED_COLS)}\n\n"
+            f"Poids_Tare_kg attendu entre {POIDS_TARE_MIN:,} et {POIDS_TARE_MAX:,} kg.\n"
+            f"Poids_Cargaison_kg attendu entre {POIDS_CARGAISON_MIN:,} et {POIDS_CARGAISON_MAX:,} kg."
+        )
+    )
+
+    template_df = pd.DataFrame([{
+        'Poids_Tare_kg': 8500, 'Poids_Cargaison_kg': 15000, 'heure_entree': 14,
+        'jour_semaine': 1, 'mois': 3, 'Nom_Cargaison': NOM_CARGAISON[0],
+        'Nom_Navire': NOM_NAVIRE[0], 'Type_Travail': TYPE_TRAVAIL[0]
+    }])
+    cols_badges = " ".join(f"<code>{c}</code>" for c in CSV_REQUIRED_COLS)
+    st.markdown(
+        f'<div class="csv-mini-link"><i class="fa-solid fa-circle-info"></i> '
+        f'Colonnes attendues&nbsp; {cols_badges}</div>',
+        unsafe_allow_html=True
+    )
+    st.download_button(
+        "Télécharger un exemple de fichier",
+        data=template_df.to_csv(index=False).encode("utf-8"),
+        file_name="modele_import_surestarie.csv",
+        mime="text/csv"
+    )
+
+    if csv_file is not None:
+        try:
+            df_csv = pd.read_csv(csv_file)
+        except Exception as e:
+            st.error(f"Impossible de lire le fichier CSV : {e}")
+            df_csv = None
+
+        if df_csv is not None:
+            missing_cols = [c for c in CSV_REQUIRED_COLS if c not in df_csv.columns]
+            if missing_cols:
+                st.error(f"Colonnes manquantes dans le CSV : {', '.join(missing_cols)}")
+            else:
+                with st.expander(f"Aperçu du fichier — {len(df_csv)} ligne(s)", expanded=False):
+                    st.dataframe(df_csv.head(10), use_container_width=True)
+
+                batch_btn = st.button("⚓  Lancer la prédiction sur le fichier", key="batch_predict_btn")
+
+                if batch_btn:
+                    if pipe is None:
+                        st.error("Modèle non chargé. Vérifiez que meilleur_modele_foret_simple.pkl est présent.")
+                    else:
+                        with st.spinner("Prédiction en cours sur l'ensemble du fichier..."):
+                            df_work = df_csv.copy()
+
+                            for col in ['Poids_Tare_kg', 'Poids_Cargaison_kg', 'heure_entree', 'jour_semaine', 'mois']:
+                                df_work[col] = pd.to_numeric(df_work[col], errors='coerce')
+
+                            invalid_rows = (
+                                df_work[CSV_REQUIRED_COLS].isna().any(axis=1)
+                                | (df_work['Poids_Tare_kg'] < POIDS_TARE_MIN)
+                                | (df_work['Poids_Tare_kg'] > POIDS_TARE_MAX)
+                                | (df_work['Poids_Cargaison_kg'] < POIDS_CARGAISON_MIN)
+                                | (df_work['Poids_Cargaison_kg'] > POIDS_CARGAISON_MAX)
+                            )
+                            n_invalid = int(invalid_rows.sum())
+                            df_valid = df_work[~invalid_rows].copy()
+
+                            if df_valid.empty:
+                                st.error("Aucune ligne valide à prédire — vérifiez les valeurs de votre fichier.")
+                            else:
+                                df_valid['Poids_Camion_Entree_kg']     = df_valid['Poids_Tare_kg']
+                                df_valid['log_Poids_Tare_kg']          = np.log1p(df_valid['Poids_Tare_kg'])
+                                df_valid['log_Poids_Cargaison_kg']     = np.log1p(df_valid['Poids_Cargaison_kg'])
+                                df_valid['log_Poids_Camion_Entree_kg'] = np.log1p(df_valid['Poids_Camion_Entree_kg'])
+                                df_valid['Operateur_Entree']           = OP_ENTREE_DEFAULT
+                                df_valid['Operateur_Sortie']           = OP_SORTIE_DEFAULT
+
+                                model_cols = [
+                                    'Poids_Tare_kg', 'Poids_Cargaison_kg', 'Poids_Camion_Entree_kg',
+                                    'heure_entree', 'jour_semaine', 'mois',
+                                    'log_Poids_Tare_kg', 'log_Poids_Cargaison_kg', 'log_Poids_Camion_Entree_kg',
+                                    'Nom_Cargaison', 'Nom_Navire', 'Operateur_Entree', 'Operateur_Sortie', 'Type_Travail'
+                                ]
+
+                                try:
+                                    preds = pipe.predict(df_valid[model_cols])
+                                except Exception as e:
+                                    st.error(f"Erreur lors de la prédiction : {e}")
+                                    preds = None
+
+                                if preds is not None:
+                                    df_result = df_csv.loc[df_valid.index].copy()
+                                    df_result['Surestarie_predite_min'] = np.round(preds, 0)
+                                    df_result['Surestarie_h_min'] = df_result['Surestarie_predite_min'].apply(
+                                        lambda p: f"{int(p // 60)}h {int(p % 60):02d}min"
+                                    )
+                                    df_result['Niveau_risque'] = df_result['Surestarie_predite_min'].apply(
+                                        lambda p: "Élevé" if p > 1440 else "Modéré" if p > 600 else "Faible"
+                                    )
+
+                                    st.session_state['csv_batch_result'] = df_result
+
+                                    if n_invalid > 0:
+                                        st.warning(
+                                            f"{n_invalid} ligne(s) ignorée(s) : valeurs manquantes ou poids hors plage réaliste "
+                                            f"(Tare : {POIDS_TARE_MIN:,}–{POIDS_TARE_MAX:,} kg, "
+                                            f"Cargaison : {POIDS_CARGAISON_MIN:,}–{POIDS_CARGAISON_MAX:,} kg)."
+                                        )
+                                    st.success(f"Prédiction terminée pour {len(df_result)} camion(s).")
+
+    # Affichage des résultats du batch
+    if 'csv_batch_result' in st.session_state and st.session_state['csv_batch_result'] is not None:
+        df_result = st.session_state['csv_batch_result']
+        n_high = int((df_result['Niveau_risque'] == "Élevé").sum())
+
+        st.markdown('<div class="csv-results-wrap">', unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class="csv-result-row">
+          <div class="csv-result-stats">
+            <div class="csv-result-stat"><div class="num">{len(df_result)}</div><div class="lbl">Camions traités</div></div>
+            <div class="csv-result-stat"><div class="num">{df_result['Surestarie_predite_min'].mean():.0f} min</div><div class="lbl">Surestarie moy.</div></div>
+            <div class="csv-result-stat"><div class="num" style="color:{'#f87171' if n_high else '#4ade80'};">{n_high}</div><div class="lbl">Risque élevé</div></div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.dataframe(df_result, use_container_width=True)
+
+        col_exp1, col_exp2 = st.columns([1, 1])
+        with col_exp1:
+            st.download_button(
+                "⬇ Exporter en CSV",
+                data=df_result.to_csv(index=False).encode("utf-8"),
+                file_name="resultats_surestarie_predite.csv",
+                mime="text/csv"
+            )
+        with col_exp2:
+            if st.button("Effacer les résultats"):
+                del st.session_state['csv_batch_result']
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown('<div class="glass-card-title" style="margin-bottom:8px;"><i class="fa-solid fa-clock-rotate-left"></i> &nbsp;Historique de la session</div>', unsafe_allow_html=True)
